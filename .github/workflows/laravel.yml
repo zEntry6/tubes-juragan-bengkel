@@ -8,28 +8,53 @@ on:
 
 jobs:
   laravel-tests:
-
     runs-on: ubuntu-latest
 
     steps:
-    - uses: shivammathur/setup-php@15c43e89cdef867065b0213be354c2841860869e
+    # Setup PHP
+    - name: Set up PHP
+      uses: shivammathur/setup-php@v2
       with:
-        php-version: '8.12'
-    - uses: actions/checkout@v4
-    - name: Copy .env
-      run: php -r "file_exists('.env') || copy('.env.example', '.env');"
+        php-version: '8.12' # Sesuaikan dengan versi PHP Anda
+        extensions: mbstring, bcmath, intl, pdo_mysql, pdo_sqlite
+        ini-values: post_max_size=256M, upload_max_filesize=256M
+
+    # Checkout repository
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    # Copy .env.testing for testing environment
+    - name: Set up Testing Environment
+      run: cp .env.example .env
+
+    # Install Dependencies
     - name: Install Dependencies
-      run: composer install -q --no-ansi --no-interaction --no-scripts --no-progress --prefer-dist
-    - name: Generate key
-      run: php artisan key:base64:Joz7MkVOljQ7zkbiVWdZqxcxw/BOjl9RA+aiRm+f11g=
-    - name: Directory Permissions
+      run: composer install --no-dev --prefer-dist --optimize-autoloader
+
+    # Generate Application Key
+    - name: Generate Application Key
+      run: php artisan key:generate
+
+    # Set Directory Permissions
+    - name: Set Directory Permissions
       run: chmod -R 777 storage bootstrap/cache
-    - name: Create Database
+
+    # Create SQLite Database
+    - name: Create SQLite Database
       run: |
         mkdir -p database
         touch database/database.sqlite
-    - name: Execute tests (Unit and Feature tests) via PHPUnit/Pest
+
+    # Run Laravel Migrations
+    - name: Run Migrations
       env:
         DB_CONNECTION: sqlite
-        DB_DATABASE: crud_lagidah.sql
+        DB_DATABASE: database/database.sqlite
+      run: php artisan migrate --force
+
+    # Execute Tests
+    - name: Run Tests
+      env:
+        DB_CONNECTION: sqlite
+        DB_DATABASE: database/database.sqlite
       run: php artisan test
